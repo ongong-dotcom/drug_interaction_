@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>약물 상호작용 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=Noto+Serif+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F6F3EC;
+    --panel: #FCFAF5;
+    --accent-bg: #EFEAD9;
+    --border: #D8D2C0;
+    --border-soft: #E4DFCF;
+    --ink: #1B2B27;
+    --muted: #6B7A72;
+    --muted2: #8A9690;
+    --body-text: #4A5751;
+    --active-bg: #1E2E2A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Source Serif 4', 'Noto Serif KR', Georgia, serif; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .sans { font-family: 'Noto Sans KR', sans-serif; }
+  ::selection { background: #C8792A; color: #fff; }
+
+  header { border-bottom: 1px solid var(--border); padding: 28px 24px 22px; max-width: 880px; margin: 0 auto; }
+  .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .eyebrow span { font-size: 12px; letter-spacing: 0.12em; color: var(--muted); }
+  h1 { font-size: clamp(28px, 4vw, 38px); margin: 0 0 8px; font-weight: 700; letter-spacing: -0.01em; }
+  .subtitle { font-size: 15px; color: var(--body-text); margin: 0; line-height: 1.6; max-width: 620px; }
+
+  main { max-width: 880px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  .search-wrap { position: relative; margin-bottom: 22px; }
+  .search-wrap svg { position: absolute; left: 14px; top: 14px; color: var(--muted2); }
+  #search-input {
+    width: 100%; padding: 12px 14px 12px 40px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--panel); font-size: 14px;
+    outline: none; color: var(--ink); font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .drug-chip {
+    padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--ink); font-size: 13.5px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .drug-chip:hover { border-color: #2D6A6A; }
+  .drug-chip.active { background: var(--active-bg); color: var(--bg); border-color: var(--active-bg); }
+  .drug-chip .chip-name { font-weight: 600; }
+  .drug-chip .chip-alias { font-size: 10.5px; opacity: 0.65; font-family: 'IBM Plex Mono', monospace; }
+
+  .category-block { margin-bottom: 14px; border-bottom: 1px solid var(--border-soft); }
+  .category-header {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    background: none; border: none; cursor: pointer; padding: 10px 2px; text-align: left;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .category-header .cat-name { font-size: 21px; font-weight: 700; color: var(--ink); }
+  .category-header svg { color: var(--muted); transition: transform 0.2s ease; }
+  .category-header.open svg { transform: rotate(180deg); }
+  .category-body { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 2px 18px; animation: fadeIn 0.3s ease both; }
+
+  .selected-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 16px; background: var(--accent-bg); border-radius: 10px; margin-bottom: 26px;
+    animation: fadeIn 0.3s ease both;
+  }
+  .selected-bar .label { font-size: 11.5px; color: var(--muted); letter-spacing: 0.06em; font-family: 'IBM Plex Mono', monospace; }
+  .selected-pill {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
+    background: var(--active-bg); color: var(--bg); padding: 4px 8px 4px 10px; border-radius: 999px;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .selected-pill svg { cursor: pointer; }
+  .clear-btn {
+    margin-left: auto; font-size: 12.5px; color: #8A6A4A; background: none; border: none;
+    cursor: pointer; text-decoration: underline; font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .results-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .results-header h2 { font-size: 19px; font-weight: 700; margin: 0; }
+  .results-count { font-size: 11.5px; color: var(--muted2); font-family: 'IBM Plex Mono', monospace; }
+
+  .empty-state {
+    border: 1px dashed var(--border); border-radius: 12px; padding: 28px 20px;
+    color: var(--muted2); font-size: 14px; text-align: center; font-family: 'Noto Sans KR', sans-serif;
+  }
+  .no-match {
+    border: 1px solid var(--border); border-radius: 12px; padding: 20px; font-size: 14px;
+    color: var(--body-text); background: var(--panel); font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .result-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--panel); animation: fadeIn 0.3s ease both; }
+  .result-head { padding: 10px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .result-head .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .result-head .sev { font-size: 11.5px; letter-spacing: 0.08em; font-family: 'IBM Plex Mono', monospace; }
+  .result-head .label { font-size: 13.5px; margin-left: 4px; font-family: 'Noto Sans KR', sans-serif; }
+  .result-body { padding: 16px 18px; }
+  .result-body h3 { font-size: 16.5px; margin: 0 0 8px; font-weight: 700; }
+  .result-body p.detail { font-size: 14px; line-height: 1.7; color: #3A4640; margin: 0 0 12px; font-family: 'Noto Sans KR', sans-serif; }
+  .population-row { display: flex; align-items: flex-start; gap: 8px; }
+  .population-row svg { margin-top: 2px; flex-shrink: 0; color: #A13D2C; }
+  .population-row p { font-size: 13px; color: #5A453A; margin: 0; line-height: 1.6; font-family: 'Noto Sans KR', sans-serif; }
+
+  footer.disclaimer {
+    margin-top: 44px; padding: 16px 18px; background: var(--accent-bg); border-radius: 12px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  footer.disclaimer svg { margin-top: 2px; flex-shrink: 0; color: var(--muted); }
+  footer.disclaimer p { font-size: 12.5px; color: #5A6A62; margin: 0; line-height: 1.7; font-family: 'Noto Sans KR', sans-serif; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D6A6A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/></svg>
+    <span class="mono">DUR EDUCATIONAL PROTOTYPE</span>
+  </div>
+  <h1>약물 상호작용 프로그램</h1>
+  <p class="subtitle">복용하고 있는 약 성분을 선택하고 부작용 여부를 확인해보자.</p>
+</header>
+
+<main>
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="search-input" class="sans" placeholder="약 이름으로 검색 (예: 타이레놀, 이부프로펜, 항응고제)" autocomplete="off">
+  </div>
+
+  <div id="drug-picker"></div>
+  <div id="selected-bar-wrap"></div>
+
+  <section>
+    <div class="results-header">
+      <h2>상호작용 결과</h2>
+      <span id="results-count" class="results-count"></span>
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <footer class="disclaimer">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <p>이 표는 교육·과제 목적의 프로토타입이며, 여기 담긴 상호작용 항목은 일부 잘 알려진 사례를 단순화한 것이다. 실제 복용 결정에는 절대 사용하지 말고, 정확한 정보는 식약처 의약품안전나라 DUR 정보나 약사·의사 상담을 통해 확인해야 한다.</p>
+  </footer>
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// 카테고리 & 약물 데이터셋
+// ---------------------------------------------------------------------------
+const CATEGORIES = ["진통제", "감기", "심혈관계", "위장관계", "정신건강"];
+
+const DRUGS = [
+  { id: "acetaminophen", name: "아세트아미노펜", tags: ["acetaminophen"], brands: ["타이레놀"],
+    categories: [["진통제", "해열진통제"], ["감기", "해열진통제"]] },
+  { id: "ibuprofen", name: "이부프로펜", tags: ["nsaid"], brands: ["부루펜", "애드빌"],
+    categories: [["진통제", "NSAIDs"], ["감기", "소염진통제"]] },
+  { id: "naproxen", name: "나프록센", tags: ["nsaid"], brands: ["낙센"], categories: [["진통제", "NSAIDs"]] },
+  { id: "diclofenac", name: "디클로페낙", tags: ["nsaid"], brands: ["볼타렌"], categories: [["진통제", "NSAIDs"]] },
+  { id: "dexibuprofen", name: "덱시부프로펜", tags: ["nsaid"], brands: ["이지엔6프로", "덱시펜"], categories: [["진통제", "NSAIDs"]] },
+  { id: "ketoprofen", name: "케토프로펜", tags: ["nsaid"], brands: ["케토톱"], categories: [["진통제", "NSAIDs"]] },
+  { id: "loxoprofen", name: "록소프로펜", tags: ["nsaid"], brands: ["록소닌"], categories: [["진통제", "NSAIDs"]] },
+  { id: "celecoxib", name: "셀레콕시브", tags: ["nsaid"], brands: ["쎄레브렉스"], categories: [["진통제", "선택적 NSAIDs"]] },
+  { id: "meloxicam", name: "멜록시캄", tags: ["nsaid"], brands: ["모빅"], categories: [["진통제", "선택적 NSAIDs"]] },
+  { id: "aspirin", name: "아스피린", tags: ["nsaid", "antiplatelet"], brands: ["아스피린프로텍트", "바이엘아스피린"],
+    categories: [["진통제", "NSAIDs"], ["심혈관계", "항혈소판제"]] },
+
+  { id: "dextromethorphan", name: "덱스트로메토르판", tags: ["serotonergic"], brands: [], categories: [["감기", "기침억제제"]] },
+  { id: "ambroxol", name: "암브록솔", tags: [], brands: ["뮤코솔반"], categories: [["감기", "거담제"]] },
+  { id: "chlorpheniramine", name: "클로르페니라민", tags: ["cns_depressant"], brands: ["페니라민"], categories: [["감기", "항히스타민제"]] },
+  { id: "pseudoephedrine", name: "슈도에페드린", tags: ["decongestant"], brands: ["슈다페드"], categories: [["감기", "비충혈제거제"]] },
+  { id: "methylephedrine", name: "메틸에페드린", tags: ["decongestant"], brands: [], categories: [["감기", "기관지확장제"]] },
+
+  { id: "amlodipine", name: "암로디핀", tags: ["ccb"], brands: ["노바스크"], categories: [["심혈관계", "칼슘채널차단제"]] },
+  { id: "losartan", name: "로사르탄", tags: ["antihypertensive"], brands: ["코자"], categories: [["심혈관계", "고혈압약"]] },
+  { id: "atorvastatin", name: "아토르바스타틴", tags: ["statin"], brands: ["리피토"], categories: [["심혈관계", "고지혈증약"]] },
+  { id: "clopidogrel", name: "클로피도그렐", tags: ["antiplatelet"], brands: ["플라빅스"], categories: [["심혈관계", "항혈소판제"]] },
+  { id: "metoprolol", name: "메토프롤롤", tags: ["betablocker_selective"], brands: ["베타록"], categories: [["심혈관계", "베타차단제"]] },
+  { id: "warfarin", name: "와파린", tags: ["anticoagulant"], brands: ["쿠마딘"], categories: [["심혈관계", "항응고제"]] },
+  { id: "rivaroxaban", name: "리바록사반", tags: ["anticoagulant"], brands: ["자렐토"], categories: [["심혈관계", "항응고제"]] },
+  { id: "hydrochlorothiazide", name: "하이드로클로로티아지드", tags: ["thiazide", "antihypertensive"], brands: ["다이크로짇"], categories: [["심혈관계", "이뇨제"]] },
+  { id: "empagliflozin", name: "엠파글리플로진", tags: ["sglt2", "antihypertensive"], brands: ["자디앙"], categories: [["심혈관계", "SGLT2 억제제"]] },
+
+  { id: "calcium_carbonate", name: "탄산칼슘", tags: [], brands: ["칼탄정"], categories: [["위장관계", "제산제"]] },
+  { id: "omeprazole", name: "오메프라졸", tags: ["ppi"], brands: ["로섹"], categories: [["위장관계", "위산분비억제제"]] },
+  { id: "famotidine", name: "파모티딘", tags: [], brands: ["가스터"], categories: [["위장관계", "위산분비억제제"]] },
+  { id: "mosapride", name: "모사프리드", tags: [], brands: ["가스모틴"], categories: [["위장관계", "위장운동촉진제"]] },
+  { id: "rebamipide", name: "레바미피드", tags: [], brands: ["무코스타"], categories: [["위장관계", "위점막보호제"]] },
+  { id: "pancreatin", name: "판크레아틴", tags: [], brands: ["훼스탈"], categories: [["위장관계", "소화효소제"]] },
+  { id: "loperamide", name: "로페라마이드", tags: [], brands: ["로페린"], categories: [["위장관계", "지사제"]] },
+  { id: "lactulose", name: "락툴로오스", tags: [], brands: ["듀파락"], categories: [["위장관계", "변비약"]] },
+
+  { id: "escitalopram", name: "에스시탈로프람", tags: ["ssri", "serotonergic"], brands: ["렉사프로"], categories: [["정신건강", "항우울제"]] },
+  { id: "alprazolam", name: "알프라졸람", tags: ["benzo", "cns_depressant"], brands: ["자낙스"], categories: [["정신건강", "항불안제"]] },
+  { id: "methylphenidate", name: "메틸페니데이트", tags: ["stimulant"], brands: ["콘서타", "페니드"], categories: [["정신건강", "충동억제제"]] },
+  { id: "aripiprazole", name: "아리피프라졸", tags: ["cns_depressant"], brands: ["아빌리파이"], categories: [["정신건강", "항정신병약"]] },
+  { id: "lithium", name: "탄산리튬", tags: ["lithium"], brands: ["리단정"], categories: [["정신건강", "기분조절제"]] },
+  { id: "clomipramine", name: "클로미프라민", tags: ["tca", "serotonergic", "cns_depressant"], brands: ["그로민"], categories: [["정신건강", "항우울제"]] },
+  { id: "bupropion", name: "부프로피온", tags: ["ndri"], brands: ["웰부트린"], categories: [["정신건강", "NDRI계"]] },
+  { id: "zolpidem", name: "졸피뎀", tags: ["cns_depressant"], brands: ["스틸녹스"], categories: [["정신건강", "수면유도제"]] },
+  { id: "trazodone", name: "트라조돈", tags: ["serotonergic", "cns_depressant"], brands: ["트리티코"], categories: [["정신건강", "항우울제"]] },
+  { id: "propranolol", name: "프로프라놀롤", tags: ["betablocker_nonselective"], brands: ["인데놀"], categories: [["정신건강", "베타차단제"]] },
+];
+
+const DRUG_MAP = Object.fromEntries(DRUGS.map(d => [d.id, d]));
+const hasTag = (drug, tag) => drug.tags.includes(tag);
+
+// ---------------------------------------------------------------------------
+// 상호작용 규칙
+// ---------------------------------------------------------------------------
+const PAIR_RULES = [
+  { pair: ["acetaminophen", "warfarin"], severity: "경도", title: "항응고 효과 변화 가능성",
+    detail: "일반적인 단기 복용에서는 영향이 적지만, 아세트아미노펜을 고용량으로 장기간 복용하면 와파린의 항응고 효과가 예상보다 강해질 수 있다.",
+    populations: ["와파린 복용 중인 만성 통증 환자"] },
+  { pair: ["omeprazole", "clopidogrel"], severity: "중등도", title: "항혈소판 효과 감소",
+    detail: "오메프라졸은 클로피도그렐을 활성형으로 바꾸는 간 효소(CYP2C19)를 억제해, 클로피도그렐의 항혈소판 효과를 약화시킬 수 있다.",
+    populations: ["스텐트 시술 후 항혈소판 치료 중인 환자"] },
+  { pair: ["omeprazole", "escitalopram"], severity: "중등도", title: "약물 혈중 농도 상승",
+    detail: "오메프라졸이 에스시탈로프람 대사 효소를 억제해 혈중 농도를 높일 수 있어, 심전도 QT 연장 등 부작용 위험이 커질 수 있다.",
+    populations: ["심장질환 병력자", "고령자"] },
+  { pair: ["atorvastatin", "amlodipine"], severity: "경도", title: "스타틴 혈중 농도 상승",
+    detail: "암로디핀이 아토르바스타틴의 대사를 일부 억제해 혈중 농도가 높아질 수 있으며, 이로 인해 근육통 등 부작용 위험이 소폭 증가한다.",
+    populations: ["고령자", "근육통 병력자"] },
+  { pair: ["empagliflozin", "hydrochlorothiazide"], severity: "중등도", title: "탈수·저혈압 위험 증가",
+    detail: "둘 다 체내 수분·염분 배출을 늘리는 기전이 있어 함께 복용하면 탈수, 어지러움, 저혈압 위험이 커진다.",
+    populations: ["고령자", "신장기능 저하자"] },
+  { pair: ["warfarin", "rivaroxaban"], severity: "중증", title: "항응고제 중복 - 출혈 위험 급증",
+    detail: "두 항응고제를 함께 복용하면 각각의 출혈 위험이 단순히 더해지는 것을 넘어 중대한 출혈로 이어질 수 있어, 의료진의 명확한 지시 없이는 병용하지 않는다.",
+    populations: ["모든 병용 대상자"] },
+  { pair: ["lithium", "hydrochlorothiazide"], severity: "중증", title: "리튬 중독 위험",
+    detail: "티아지드 계열 이뇨제는 신장에서 리튬 배출을 줄여 혈중 리튬 농도를 높인다. 치료 범위가 좁은 약이라 중독 증상(떨림, 혼돈, 신장 기능 저하)으로 이어질 수 있다.",
+    populations: ["리튬 복용 중인 환자", "신장기능 저하자"] },
+  { pair: ["bupropion", "clomipramine"], severity: "중등도", title: "경련 역치 저하",
+    detail: "부프로피온은 그 자체로 경련 역치를 낮출 수 있는데, 삼환계 항우울제인 클로미프라민과 병용하면 이 위험이 커지고 클로미프라민 혈중 농도도 높아질 수 있다.",
+    populations: ["경련 병력자"] },
+  { pair: ["propranolol", "pseudoephedrine"], severity: "중증", title: "고혈압 위기 가능성",
+    detail: "프로프라놀롤 같은 비선택적 베타차단제는 슈도에페드린의 혈관수축 작용을 상대적으로 강하게 만들어 혈압이 급격히 오를 수 있다.",
+    populations: ["고혈압 환자"] },
+  { pair: ["propranolol", "methylephedrine"], severity: "중증", title: "고혈압 위기 가능성",
+    detail: "비선택적 베타차단제와 교감신경흥분 성분의 병용은 혈압을 급격히 높일 수 있는 대표적인 조합이다.",
+    populations: ["고혈압 환자"] },
+  { pair: ["metoprolol", "pseudoephedrine"], severity: "중등도", title: "혈압 상승 가능성",
+    detail: "메토프롤롤은 선택적 베타차단제라 상대적으로 안전하지만, 슈도에페드린과 병용 시 혈압이 오르는 사례가 보고된다.",
+    populations: ["고혈압, 협심증 병력자"] },
+  { pair: ["metoprolol", "methylephedrine"], severity: "중등도", title: "혈압 상승 가능성",
+    detail: "선택적 베타차단제라도 교감신경흥분 성분과 병용하면 혈압·심박수가 오를 수 있어 주의가 필요하다.",
+    populations: ["고혈압, 협심증 병력자"] },
+  { pair: ["aspirin", "clopidogrel"], severity: "중등도", title: "이중 항혈소판 - 출혈 위험 증가",
+    detail: "심혈관 질환 치료 목적으로 의도적으로 병용하기도 하지만, 그 경우가 아니라면 출혈 위험만 늘어난다.",
+    populations: ["소화성 궤양 병력자", "고령자"] },
+];
+
+const CROSS_RULES = [
+  { tags: ["nsaid", "anticoagulant"], severity: "중증", title: "출혈 위험 급증",
+    detail: "NSAID는 위점막을 손상시키고 혈소판 기능을 억제해, 항응고제와 함께 복용하면 위장관 출혈을 포함한 심각한 출혈 위험이 크게 높아진다.",
+    populations: ["항응고 치료 중인 환자", "고령자"] },
+  { tags: ["nsaid", "antiplatelet"], severity: "중등도", title: "출혈 위험 증가",
+    detail: "NSAID와 항혈소판제를 함께 복용하면 위장관 출혈 위험이 늘어난다.",
+    populations: ["소화성 궤양 병력자", "심혈관 질환자"] },
+  { tags: ["antiplatelet", "anticoagulant"], severity: "중증", title: "항혈전 작용 중복 - 출혈 위험",
+    detail: "항혈소판제와 항응고제는 지혈 과정의 서로 다른 단계를 억제하기 때문에, 함께 쓰면 출혈 위험이 각각 복용할 때보다 크게 늘어난다.",
+    populations: ["뇌졸중·심근경색 예방 치료 중인 환자"] },
+  { tags: ["nsaid", "lithium"], severity: "중증", title: "리튬 혈중 농도 상승",
+    detail: "NSAID는 신장에서 리튬이 배출되는 것을 줄여 혈중 농도를 높인다. 리튬은 치료 범위가 좁아 중독 증상으로 이어지기 쉽다.",
+    populations: ["리튬 복용자", "신장기능 저하자"] },
+  { tags: ["decongestant", "antihypertensive"], severity: "경도", title: "혈압 조절 방해",
+    detail: "비충혈제거·기관지확장 성분은 혈관을 수축시켜 혈압을 올리는 방향으로 작용해, 항고혈압제의 효과를 상쇄할 수 있다.",
+    populations: ["고혈압 치료 중인 환자"] },
+  { tags: ["decongestant", "stimulant"], severity: "중등도", title: "교감신경 자극 중첩",
+    detail: "둘 다 교감신경을 자극하는 성분이라 함께 복용하면 심박수 증가, 혈압 상승, 불안, 불면이 더 두드러질 수 있다.",
+    populations: ["부정맥 병력자", "심질환이 있는 ADHD 치료 환자"] },
+];
+
+const GROUP_RULES = [
+  { tag: "nsaid", severity: "중등도", title: "NSAID 중복 복용 - 위장관·신장 부담 증가",
+    detail: "서로 다른 NSAID를 함께 복용해도 진통 효과가 커지지 않고, 위장관 출혈과 신장 기능 저하 위험만 늘어난다.",
+    populations: ["고령자", "소화성 궤양 병력자", "신장질환자"] },
+  { tag: "cns_depressant", severity: "중등도", title: "중추신경 억제 작용 중첩",
+    detail: "진정 작용이 있는 성분을 여러 개 함께 복용하면 졸음, 어지러움, 집중력 저하가 더해져 낙상이나 안전사고 위험이 커진다.",
+    populations: ["고령자", "운전·기계 조작이 필요한 사람"] },
+  { tag: "serotonergic", severity: "중증", title: "세로토닌 증후군 위험",
+    detail: "세로토닌 신호에 영향을 주는 성분을 여러 개 함께 복용하면 떨림, 발한, 근경직, 고체온 등을 특징으로 하는 세로토닌 증후군 위험이 커진다.",
+    populations: ["약물을 새로 시작하거나 용량을 바꾼 직후인 사람"] },
+];
+
+function getInteractions(selectedIds) {
+  const drugs = selectedIds.map(id => DRUG_MAP[id]);
+  const results = [];
+  const seen = new Set();
+
+  for (const rule of PAIR_RULES) {
+    if (selectedIds.includes(rule.pair[0]) && selectedIds.includes(rule.pair[1])) {
+      const key = rule.pair.slice().sort().join("|") + rule.title;
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push({ severity: rule.severity, title: rule.title, detail: rule.detail,
+          populations: rule.populations, label: `${DRUG_MAP[rule.pair[0]].name} + ${DRUG_MAP[rule.pair[1]].name}` });
+      }
+    }
+  }
+
+  for (const rule of CROSS_RULES) {
+    const [tagA, tagB] = rule.tags;
+    for (let i = 0; i < drugs.length; i++) {
+      for (let j = i + 1; j < drugs.length; j++) {
+        const a = drugs[i], b = drugs[j];
+        const matches = (hasTag(a, tagA) && hasTag(b, tagB)) || (hasTag(a, tagB) && hasTag(b, tagA));
+        if (matches) {
+          const key = [a.id, b.id].sort().join("|") + rule.title;
+          if (!seen.has(key)) {
+            seen.add(key);
+            results.push({ severity: rule.severity, title: rule.title, detail: rule.detail,
+              populations: rule.populations, label: `${a.name} + ${b.name}` });
+          }
+        }
+      }
+    }
+  }
+
+  for (const rule of GROUP_RULES) {
+    const matched = drugs.filter(d => hasTag(d, rule.tag));
+    if (matched.length >= 2) {
+      results.push({ severity: rule.severity, title: rule.title, detail: rule.detail,
+        populations: rule.populations, label: matched.map(d => d.name).join(", ") });
+    }
+  }
+
+  const order = { "중증": 0, "중등도": 1, "경도": 2 };
+  return results.sort((a, b) => order[a.severity] - order[b.severity]);
+}
+
+const SEVERITY_STYLE = {
+  "중증": { bg: "#3D1F1A", text: "#F3D9CF", dot: "#C2481F" },
+  "중등도": { bg: "#3D2E12", text: "#F1DDB0", dot: "#C8792A" },
+  "경도": { bg: "#1E2E2A", text: "#CFE3DA", dot: "#2D6A6A" },
+};
+
+// ---------------------------------------------------------------------------
+// 상태
+// ---------------------------------------------------------------------------
+let selected = [];
+let query = "";
+let expanded = Object.fromEntries(CATEGORIES.map(c => [c, true]));
+
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function chipHTML(drug, alias) {
+  const active = selected.includes(drug.id) ? "active" : "";
+  return `<button class="drug-chip ${active}" data-drug="${drug.id}">
+    <span class="chip-name">${esc(drug.name)}</span>
+    <span class="chip-alias">${esc(alias)}</span>
+  </button>`;
+}
+
+function renderPicker() {
+  const wrap = document.getElementById("drug-picker");
+  const q = query.trim().toLowerCase();
+
+  if (q.length > 0) {
+    const filtered = DRUGS.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.brands.some(b => b.toLowerCase().includes(q)) ||
+      d.categories.some(([cat, alias]) => cat.includes(q) || alias.toLowerCase().includes(q))
+    );
+    if (filtered.length === 0) {
+      wrap.innerHTML = `<p class="sans" style="color:#8A9690;font-size:14px;">일치하는 약이 없다. 다른 검색어를 시도해 보라.</p>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="chip-row" style="margin-bottom:30px;">` +
+      filtered.map(d => {
+        const matchedBrand = d.brands.find(b => b.toLowerCase().includes(q));
+        const alias = matchedBrand ? `${matchedBrand} 성분` : d.categories[0][1];
+        return chipHTML(d, alias);
+      }).join("") + `</div>`;
+    return;
+  }
+
+  wrap.innerHTML = CATEGORIES.map(cat => {
+    const drugsInCat = DRUGS.filter(d => d.categories.some(([c]) => c === cat));
+    if (drugsInCat.length === 0) return "";
+    const isOpen = expanded[cat];
+    return `<div class="category-block">
+      <button class="category-header ${isOpen ? "open" : ""}" data-cat="${esc(cat)}">
+        <span class="cat-name">${esc(cat)}</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      ${isOpen ? `<div class="category-body">${
+        drugsInCat.map(d => {
+          const alias = d.categories.find(([c]) => c === cat)[1];
+          return chipHTML(d, alias);
+        }).join("")
+      }</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderSelectedBar() {
+  const wrap = document.getElementById("selected-bar-wrap");
+  if (selected.length === 0) { wrap.innerHTML = ""; return; }
+  wrap.innerHTML = `<div class="selected-bar">
+    <span class="label">선택됨 (${selected.length})</span>
+    ${selected.map(id => {
+      const d = DRUG_MAP[id];
+      return `<span class="selected-pill">${esc(d.name)}
+        <svg data-remove="${id}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </span>`;
+    }).join("")}
+    <button class="clear-btn" id="clear-all">전체 지우기</button>
+  </div>`;
+}
+
+function renderResults() {
+  const countEl = document.getElementById("results-count");
+  const resultsEl = document.getElementById("results");
+
+  if (selected.length < 2) {
+    countEl.textContent = "약 2개 이상 선택";
+    resultsEl.innerHTML = `<div class="empty-state">위에서 약을 2개 이상 선택하면 여기에 상호작용 정보가 표시된다.</div>`;
+    return;
+  }
+
+  const results = getInteractions(selected);
+  countEl.textContent = `${results.length}건 발견`;
+
+  if (results.length === 0) {
+    resultsEl.innerHTML = `<div class="no-match">선택한 조합에서는 이 데이터셋에 등록된 상호작용이 없다. 다만 등록되지 않은 상호작용이 있을 수 있으니, 실제로는 반드시 약사·의사와 상담하라.</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px;">` +
+    results.map(r => {
+      const style = SEVERITY_STYLE[r.severity];
+      const popRow = r.populations.length > 0 ? `
+        <div class="population-row">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <p><strong>특히 주의:</strong> ${esc(r.populations.join(" · "))}</p>
+        </div>` : "";
+      return `<article class="result-card">
+        <div class="result-head" style="background:${style.bg};color:${style.text};">
+          <span class="dot" style="background:${style.dot};"></span>
+          <span class="sev">${r.severity}</span>
+          <span class="label">${esc(r.label)}</span>
+        </div>
+        <div class="result-body">
+          <h3>${esc(r.title)}</h3>
+          <p class="detail">${esc(r.detail)}</p>
+          ${popRow}
+        </div>
+      </article>`;
+    }).join("") + `</div>`;
+}
+
+function renderAll() {
+  renderPicker();
+  renderSelectedBar();
+  renderResults();
+}
+
+// ---------------------------------------------------------------------------
+// 이벤트 위임
+// ---------------------------------------------------------------------------
+document.getElementById("search-input").addEventListener("input", (e) => {
+  query = e.target.value;
+  renderPicker();
+});
+
+document.getElementById("drug-picker").addEventListener("click", (e) => {
+  const chip = e.target.closest(".drug-chip");
+  if (chip) {
+    const id = chip.dataset.drug;
+    if (selected.includes(id)) selected = selected.filter(x => x !== id);
+    else selected = [...selected, id];
+    renderAll();
+    return;
+  }
+  const catHeader = e.target.closest(".category-header");
+  if (catHeader) {
+    const cat = catHeader.dataset.cat;
+    expanded[cat] = !expanded[cat];
+    renderPicker();
+  }
+});
+
+document.getElementById("selected-bar-wrap").addEventListener("click", (e) => {
+  const removeBtn = e.target.closest("[data-remove]");
+  if (removeBtn) {
+    const id = removeBtn.dataset.remove;
+    selected = selected.filter(x => x !== id);
+    renderAll();
+    return;
+  }
+  if (e.target.id === "clear-all") {
+    selected = [];
+    renderAll();
+  }
+});
+
+renderAll();
+</script>
+</body>
+</html>
